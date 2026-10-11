@@ -4,11 +4,11 @@
 ; RUN: llc -verify-machineinstrs -mtriple=mips64 -relocation-model=static -target-abi o32 < %s | FileCheck --check-prefixes=ALL,SYM32,O32 %s
 ; RUN: llc -verify-machineinstrs -mtriple=mips64el -relocation-model=static -target-abi o32 < %s | FileCheck --check-prefixes=ALL,SYM32,O32 %s
 
-; RUN: llc -mtriple=mips64 -relocation-model=static -target-abi n32 < %s | FileCheck --check-prefixes=ALL,SYM32,NEW %s
-; RUN: llc -mtriple=mips64el -relocation-model=static -target-abi n32 < %s | FileCheck --check-prefixes=ALL,SYM32,NEW %s
+; RUN: llc -mtriple=mips64 -relocation-model=static -target-abi n32 < %s | FileCheck --check-prefixes=ALL,SYM32,NEW,NEWBE %s
+; RUN: llc -mtriple=mips64el -relocation-model=static -target-abi n32 < %s | FileCheck --check-prefixes=ALL,SYM32,NEW,NEWLE %s
 
-; RUN: llc -mtriple=mips64 -relocation-model=static -target-abi n64 < %s | FileCheck --check-prefixes=ALL,SYM64,NEW %s
-; RUN: llc -mtriple=mips64el -relocation-model=static -target-abi n64 < %s | FileCheck --check-prefixes=ALL,SYM64,NEW %s
+; RUN: llc -mtriple=mips64 -relocation-model=static -target-abi n64 < %s | FileCheck --check-prefixes=ALL,SYM64,NEW,NEWBE %s
+; RUN: llc -mtriple=mips64el -relocation-model=static -target-abi n64 < %s | FileCheck --check-prefixes=ALL,SYM64,NEW,NEWLE %s
 
 ; Test the integer arguments for all ABI's and byte orders as specified by
 ; section 5 of MD00305 (MIPS ABIs Described).
@@ -84,11 +84,13 @@ entry:
 ; increase by 4 for O32 and 8 for N32/N64.
 ; O32-DAG:           lw [[R3:\$[0-9]+]], 32($sp)
 ; O32-DAG:           sb [[R3]], 9([[R1]])
-; NEW-DAG:           ld [[R3:\$[0-9]+]], 0($sp)
+; NEWBE-DAG:        lw [[R3:\$[0-9]+]], 4($sp)
+; NEWLE-DAG:        lw [[R3:\$[0-9]+]], 0($sp)
 ; NEW-DAG:           sb [[R3]], 9([[R1]])
 ; O32-DAG:           lw [[R3:\$[0-9]+]], 36($sp)
 ; O32-DAG:           sb [[R3]], 10([[R1]])
-; NEW-DAG:           ld [[R3:\$[0-9]+]], 8($sp)
+; NEWBE-DAG:        lw [[R3:\$[0-9]+]], 12($sp)
+; NEWLE-DAG:        lw [[R3:\$[0-9]+]], 8($sp)
 ; NEW-DAG:           sb [[R3]], 10([[R1]])
 
 define void @slot_skipping(i8 signext %a, i64 signext %b, i8 signext %c,
@@ -168,5 +170,6 @@ entry:
 ; increase by 4 for O32 and 8 for N32/N64.
 ; O32-DAG:           lw [[R3:\$[0-9]+]], 48($sp)
 ; O32-DAG:           sb [[R3]], 7([[R1]])
-; NEW-DAG:           ld [[R3:\$[0-9]+]], 0($sp)
+; NEWBE-DAG:        lw [[R3:\$[0-9]+]], 4($sp)
+; NEWLE-DAG:        lw [[R3:\$[0-9]+]], 0($sp)
 ; NEW-DAG:           sb [[R3]], 7([[R1]])

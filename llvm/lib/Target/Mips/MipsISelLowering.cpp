@@ -3974,15 +3974,41 @@ SDValue MipsTargetLowering::LowerFormalArguments(
       // Only arguments pased on the stack should make it here.
       assert(VA.isMemLoc());
 
+      // An integer narrower than its N32/N64 stack slot is promoted to the
+      // slot's type, but the caller is only required to write the value's own
+      // bytes (GCC stores a 32-bit argument with `sw` and leaves the other
+      // half of the slot as it was). Load just those bytes, extending as the
+      // argument's attributes say, instead of trusting the whole slot.
+      MVT MemVT = LocVT;
+      unsigned SlotAdjust = 0;
+      ISD::LoadExtType ExtType = ISD::NON_EXTLOAD;
+      if ((ABI.IsN32() || ABI.IsN64()) && LocVT == MVT::i64 &&
+          ValVT.isInteger() && ValVT.bitsLT(LocVT) &&
+          (VA.getLocInfo() == CCValAssign::SExt ||
+           VA.getLocInfo() == CCValAssign::ZExt ||
+           VA.getLocInfo() == CCValAssign::AExt)) {
+        MemVT = ValVT.getSimpleVT();
+        if (!Subtarget.isLittle())
+          SlotAdjust = LocVT.getStoreSize() - MemVT.getStoreSize();
+        ExtType = VA.getLocInfo() == CCValAssign::SExt   ? ISD::SEXTLOAD
+                  : VA.getLocInfo() == CCValAssign::ZExt ? ISD::ZEXTLOAD
+                                                         : ISD::EXTLOAD;
+      }
+
       // The stack pointer offset is relative to the caller stack frame.
-      int FI = MFI.CreateFixedObject(LocVT.getSizeInBits() / 8,
-                                     VA.getLocMemOffset(), true);
+      int FI = MFI.CreateFixedObject(MemVT.getStoreSize(),
+                                     VA.getLocMemOffset() + SlotAdjust, true);
 
       // Create load nodes to retrieve arguments from the stack
       SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
-      SDValue ArgValue = DAG.getLoad(
-          LocVT, DL, Chain, FIN,
-          MachinePointerInfo::getFixedStack(DAG.getMachineFunction(), FI));
+      SDValue ArgValue = ExtType == ISD::NON_EXTLOAD
+                             ? DAG.getLoad(LocVT, DL, Chain, FIN,
+                                           MachinePointerInfo::getFixedStack(
+                                               DAG.getMachineFunction(), FI))
+                             : DAG.getExtLoad(ExtType, DL, LocVT, Chain, FIN,
+                                              MachinePointerInfo::getFixedStack(
+                                                  DAG.getMachineFunction(), FI),
+                                              MemVT);
       OutChains.push_back(ArgValue.getValue(1));
 
       ArgValue =

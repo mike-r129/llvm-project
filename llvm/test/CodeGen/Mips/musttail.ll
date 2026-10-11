@@ -102,7 +102,7 @@ define i32 @test_musttail_struct(%struct.large %s, i32 %x) {
 ;
 ; MIPS64-LABEL: test_musttail_struct:
 ; MIPS64:       # %bb.0:
-; MIPS64-NEXT:    ld $1, 0($sp)
+; MIPS64-NEXT:    lw $1, 4($sp)
 ; MIPS64-NEXT:    j callee_with_struct
 ; MIPS64-NEXT:    sd $1, 0($sp)
   %ret = musttail call i32 @callee_with_struct(%struct.large %s, i32 %x)
