@@ -769,10 +769,13 @@ bool MipsBranchExpansion::handleMFLOSlot(Pred Predicate, Safe SafeInSlot) {
           }
           if (hasPendingMFLO)
             hasPendingMFLO = false;
-        } else if (hasPendingMFLO)
-          hasPendingMFLO = false;
-        else if (IsMFLOMFHI(I->getOpcode()))
+        } else if (IsMFLOMFHI(I->getOpcode())) {
+          // An mflo/mfhi starts its own window even if the previous one is
+          // still pending, e.g. the mfhi in mflo + mfhi + none-div + div.
           hasPendingMFLO = true;
+        } else if (hasPendingMFLO) {
+          hasPendingMFLO = false;
+        }
       }
     }
   }

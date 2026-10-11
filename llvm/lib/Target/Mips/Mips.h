@@ -20,13 +20,18 @@
 #define IsMFLOMFHI(instr)                                                      \
   (instr == Mips::MFLO || instr == Mips::MFLO64 || instr == Mips::MFHI ||      \
    instr == Mips::MFHI64)
+// Instructions that write HI/LO and therefore must not follow an mflo/mfhi
+// within two instructions on MIPS I-IV.
 #define IsDIVMULT(instr)                                                       \
   (instr == Mips::SDIV || instr == Mips::PseudoSDIV || instr == Mips::DSDIV || \
    instr == Mips::PseudoDSDIV || instr == Mips::UDIV ||                        \
    instr == Mips::PseudoUDIV || instr == Mips::DUDIV ||                        \
    instr == Mips::PseudoDUDIV || instr == Mips::MULT ||                        \
-   instr == Mips::PseudoMULT || instr == Mips::DMULT ||                        \
-   instr == Mips::PseudoDMULT)
+   instr == Mips::PseudoMULT || instr == Mips::MULTu ||                        \
+   instr == Mips::PseudoMULTu || instr == Mips::DMULT ||                       \
+   instr == Mips::PseudoDMULT || instr == Mips::DMULTu ||                      \
+   instr == Mips::PseudoDMULTu || instr == Mips::MTHI ||                       \
+   instr == Mips::MTHI64 || instr == Mips::MTLO || instr == Mips::MTLO64)
 
 namespace llvm {
 class FunctionPass;
