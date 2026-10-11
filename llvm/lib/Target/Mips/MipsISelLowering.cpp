@@ -3587,7 +3587,19 @@ MipsTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       UseUpperBits = true;
       [[fallthrough]];
     case CCValAssign::AExt:
-      Arg = DAG.getNode(ISD::ANY_EXTEND, DL, LocVT, Arg);
+      // N32 pointers are 32 bits wide but have to sit sign-extended in their
+      // 64-bit register like every other 32-bit value (a callee compiled by
+      // GCC dereferences the register as is, and a zero-extended KSEG address
+      // is not a valid 64-bit address). There is no `signext` attribute for
+      // pointers, and an any-extended constant is folded to a zero-extended
+      // one, so extend constant pointers explicitly. Other pointers are
+      // produced by 32-bit instructions (lw, addiu, lui, ...), which leave
+      // the register sign-extended already.
+      Arg = DAG.getNode(ABI.IsN32() && Outs[OutIdx].Flags.isPointer() &&
+                                isa<ConstantSDNode>(Arg)
+                            ? ISD::SIGN_EXTEND
+                            : ISD::ANY_EXTEND,
+                        DL, LocVT, Arg);
       break;
     }
 
