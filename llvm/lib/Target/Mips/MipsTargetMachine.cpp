@@ -281,8 +281,10 @@ void MipsPassConfig::addPreEmitPass() {
   // instructions which can be remapped to a 16 bit instruction.
   addPass(createMicroMipsSizeReducePass());
 
-  // This pass inserts a nop instruction between two back-to-back multiplication
-  // instructions when the "mfix4300" flag is passed.
+  // This pass inserts a nop instruction after every floating-point
+  // multiplication when the "mfix4300" flag is passed. It must run before the
+  // delay slot filler, so that the multiplication does not end up in a delay
+  // slot.
   if (EnableMulMulFix)
     addPass(createMipsMulMulBugPass());
 
