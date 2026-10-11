@@ -9,13 +9,18 @@
 // Early revisions of the VR4300 have a hardware bug where two consecutive
 // multiplications can produce an incorrect result in the second multiply.
 //
-// This pass scans for mul instructions in each basic block and inserts
-// a nop whenever the following conditions are met:
+// The first multiply is a single or double-precision floating-point mul
+// instruction. The second one can be a mul of any kind (mul.s, mul.d, mult,
+// multu, dmult, dmultu), and it is the next instruction executed: in the same
+// basic block, at the start of a fall-through or branch target block, or, if
+// the first one is in a delay slot, at the branch target or after the return
+// in the caller. Any instruction in between avoids the bug.
 //
-// - The current instruction is a single or double-precision floating-point
-//   mul instruction.
-// - The next instruction is either a mul instruction (any kind)
-//   or a branch instruction.
+// Like GCC's -mfix4300, this pass follows every single or double-precision
+// floating-point mul instruction with a nop, so the next instruction executed
+// is never a multiply. The nop has unmodeled side effects, so the delay slot
+// filler, which runs after this pass, does not move the mul past it into a
+// delay slot either.
 //===----------------------------------------------------------------------===//
 
 #include "Mips.h"
@@ -82,26 +87,6 @@ static bool isFirstMul(const MachineInstr &MI) {
   }
 }
 
-static bool isSecondMulOrBranch(const MachineInstr &MI) {
-  if (MI.isBranch() || MI.isIndirectBranch() || MI.isCall())
-    return true;
-
-  switch (MI.getOpcode()) {
-  case Mips::MUL:
-  case Mips::FMUL_S:
-  case Mips::FMUL_D:
-  case Mips::FMUL_D32:
-  case Mips::FMUL_D64:
-  case Mips::MULT:
-  case Mips::MULTu:
-  case Mips::DMULT:
-  case Mips::DMULTu:
-    return true;
-  default:
-    return false;
-  }
-}
-
 bool MipsMulMulBugFix::fixMulMulBB(MachineBasicBlock &MBB,
                                    const MipsInstrInfo &MipsII) {
   bool Modified = false;
@@ -115,9 +100,12 @@ bool MipsMulMulBugFix::fixMulMulBB(MachineBasicBlock &MBB,
 
     NextMII = next_nodbg(MII, E);
 
-    // Trigger when the current instruction is a mul and the next instruction
-    // is either a mul or a branch in case the branch target start with a mul
-    if (NextMII != E && isFirstMul(*MII) && isSecondMulOrBranch(*NextMII)) {
+    // Follow every FPU mul with a nop, also at the end of the block. Looking
+    // only at the next instruction in the block is not enough: integer
+    // multiplies are still PseudoMULT/PseudoDMULT/... here, the next block can
+    // start with a multiply, and the delay slot filler could move the mul
+    // into a return or loop branch delay slot.
+    if (isFirstMul(*MII)) {
       LLVM_DEBUG(dbgs() << "Found mulmul!\n");
 
       const MCInstrDesc &NewMCID = MipsII.get(Mips::NOP);
